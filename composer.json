@@ -1,0 +1,18 @@
+{
+    "name": "collage/wetravel-integration",
+    "description": "WeTravel integration plugin",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "WetravelIntegration\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "redlik",
+            "email": "ralphr@outlook.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
