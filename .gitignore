@@ -17,6 +17,7 @@
 /wp-*.php
 /xmlrpc.php
 /.idea
+/vendor
 
 # Configuration
 wp-config.php
