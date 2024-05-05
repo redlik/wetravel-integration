@@ -11,7 +11,7 @@ class AdminPanel
             'WeTravel',
             'manage_options',
             'wetravel-integration',
-            'wetravel_integration_option_page'
+            array($this,'wetravel_integration_option_page')
         );
     }
 
@@ -27,13 +27,13 @@ class AdminPanel
             <input type="hidden" name="action" value="save_wetravel_api_key" />
             <?php wp_nonce_field('wetravel_integration_nonce'); ?>
             <div>
-            API Key:
-                <textarea name="api_key" id="api_key" cols="30" rows="10">
+            API Key:<br/>
+                <textarea name="api_key" id="api_key" cols="80" rows="12">
                     <?php echo $api_key; ?>
                 </textarea>
             </div>
         </form>
-        <input type="submit" value="Save Key">
+        <input type="submit" value="Save Key" class="btn btn-primary mt-2">
     <?php
     }
 }
