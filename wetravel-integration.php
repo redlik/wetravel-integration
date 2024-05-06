@@ -24,13 +24,12 @@ if ( ! defined( 'WPINC' ) ) {
     die;
 }
 
-register_activation_hook(__FILE__, 'wetravel_set_default_options');
 
 function wetravel_load_styles() {
     if ( isset( $_GET['page'] ) && $_GET['page'] == 'wetravel-integration' ) {
         wp_enqueue_style('bootstrap', plugin_dir_url( __FILE__ ) . 'assets/css/bootstrap.min.css', '', '5.3');
         wp_enqueue_style('wetravel-styles', plugin_dir_url( __FILE__ ) . 'assets/css/styles.css', '', PLUGIN_VERSION);
-        wp_enqueue_script( 'bootstrap-js', plugin_dir_url( __FILE__ ) . 'assets/js/bootstrap.min.js', '', '5.3' );
+        wp_enqueue_script( 'bootstrap-js', plugin_dir_url( __FILE__ ) . 'assets/js/bootstrap.bundle.min.js', '', '5.3' );
     }
 }
 
@@ -41,9 +40,37 @@ function wetravel_set_default_options() {
     }
 }
 
+register_activation_hook(__FILE__, 'wetravel_set_default_options');
+
 function wetravel_integration_admin_menu() {
     $admin_panel = new AdminPanel();
     $admin_panel->create_admin_menu();
 }
 
 add_action('admin_menu', 'wetravel_integration_admin_menu');
+add_action('admin_init', 'wetravel_integration_admin_init');
+
+function wetravel_integration_admin_init() {
+    add_action('admin_post_save_wetravel_api_key', 'wetravel_save_options');
+}
+
+function wetravel_save_options() {
+    if (!current_user_can('manage_options')) {
+        wp_die('You do not have sufficient permissions to access this page.');
+    }
+
+    check_admin_referer('wetravel_integration_nonce');
+
+    $key = get_option('wetravel_api_key');
+
+    if(isset($_POST['api_key'])) {
+        $new_key = sanitize_text_field($_POST['api_key']);
+
+        update_option('wetravel_api_key', $new_key);
+    }
+
+    wp_redirect(add_query_arg(array('page' => 'wetravel-integration'), admin_url('admin.php')));
+
+    exit;
+
+}
