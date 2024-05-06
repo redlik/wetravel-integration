@@ -15,6 +15,8 @@
 
 require_once(plugin_dir_path(__FILE__) . '/vendor/autoload.php');
 
+define('PLUGIN_VERSION', '1.0.0');
+
 use WetravelIntegration\Admin\AdminPanel;
 
 // If this file is called directly, abort.
@@ -25,8 +27,11 @@ if ( ! defined( 'WPINC' ) ) {
 register_activation_hook(__FILE__, 'wetravel_set_default_options');
 
 function wetravel_load_styles() {
-    wp_enqueue_style('bootstrap', plugin_dir_url( __FILE__ ) . 'assets/css/bootstrap.min.css', '', '5.3');
-    wp_enqueue_script( 'bootstrap-js', plugin_dir_url( __FILE__ ) . 'assets/js/bootstrap.min.js', '', '5.3' );
+    if ( isset( $_GET['page'] ) && $_GET['page'] == 'wetravel-integration' ) {
+        wp_enqueue_style('bootstrap', plugin_dir_url( __FILE__ ) . 'assets/css/bootstrap.min.css', '', '5.3');
+        wp_enqueue_style('wetravel-styles', plugin_dir_url( __FILE__ ) . 'assets/css/styles.css', '', PLUGIN_VERSION);
+        wp_enqueue_script( 'bootstrap-js', plugin_dir_url( __FILE__ ) . 'assets/js/bootstrap.min.js', '', '5.3' );
+    }
 }
 
 add_action('admin_enqueue_scripts', 'wetravel_load_styles');
