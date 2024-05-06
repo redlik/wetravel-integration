@@ -28,8 +28,13 @@ class AdminPanel
             <?php wp_nonce_field('wetravel_integration_nonce'); ?>
             <div class="mb-2">
                 <label for="api_key" class="form-label fw-bold">API Key:</label>
-                <textarea name="api_key" id="api_key" cols="80" rows="7" class="form-control bg-white"><?php echo $api_key; ?>
-                </textarea>
+                <textarea
+                    name="api_key" id="api_key"
+                    cols="80" rows="7"
+                    class="form-control bg-white"><?php echo $api_key; ?></textarea>
+                <div>
+                    <small class="text-muted">Do not change the key unless it is really necessary</small>
+                </div>
             </div>
         <input type="submit" value="Save Key" class="btn btn-primary my-2">
         </form>
