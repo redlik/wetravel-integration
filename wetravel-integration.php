@@ -40,6 +40,12 @@ function wetravel_set_default_options()
     if (get_option('wetravel_api_key') === false) {
         add_option('wetravel_api_key', 'eyJhbGciOiJSUzI1NiJ9.eyJpZCI6MjI2OTQzLCJzY29wZXMiOlsid3JpdGU6YWxsIiwicmVhZDphbGwiLCJvcmdhbml6ZXIiXSwidmVyIjo0LCJwdWIiOnRydWUsImV4cCI6MjAwNjY0MDAwMCwianRpIjoiYmE3ZDVhOTEtOWE5Mi00N2Q1LWEzYjctYzI2YTk0OWUzOWE2Iiwia2luZCI6InJlZnJlc2gifQ.zeSpTYp6_ko5WInmTLuRCDPD2Yrwhr_hM-1imWiteB_p9nwa5Hfe3pXZMTxjYsHDIKZpKxDuHkZL8VkswXdnOnzOvSfQezDGYd7HNwDl6cw1K1bYY60JJ6R0j-doYxtafYN4ybvGMFO_4NLkdrtPobbxoCDevWXTfunIuv6xMqiHcjzNa6BoM0cVnL-TwVdOPfBSvOBgpEJdOs6C0NE3Rc-_F8DeWrpqjDZUzus2MDzH9Uq0MNN72ZAkce5t4V_jtm0bOYMOnpWIv7AVoEWmMagdM0QKb9ULhxYpU4XzS1uesO4cQVYA4dg-5Z3Cqse3NhDGnjmomiLYsQJzku5nTw', '', 'no');
     }
+
+    if(get_option('wetravel_packages') === false) {
+        $packages = array(
+            ''
+        );
+    }
 }
 
 register_activation_hook(__FILE__, 'wetravel_set_default_options');
@@ -54,7 +60,7 @@ add_action('admin_menu', 'wetravel_integration_admin_menu');
 add_action('admin_init', 'wetravel_integration_admin_init');
 add_action('admin_head', 'wetravel_get_tours_id');
 add_action('wp_head', 'wetravel_integration_load_tour_data');
-add_shortcode('wetravel-dates', 'wetravel_show_tour_dates');
+add_shortcode('wetravel-dates', 'wetravel_tour_dates_shortcode');
 
 function wetravel_integration_admin_init()
 {
@@ -95,8 +101,36 @@ function wetravel_get_tours_id() {
     }
 }
 
+function wetravel_get_access_token() {
+    $args = array(
+        'headers'     => array(
+            'accept' => 'application/json',
+            'authorization' => 'Bearer ' . get_option('wetravel_api_key'),
+        ),
+    );
+//    if(get_transient('wetravel_access_token' === false)) {
+//        $response = wp_remote_post('https://www.wetravel.com/v1/auth/tokens/access', $args)['body'];
+//        $body = json_decode($response, true);
+//        $access_token = $body['access_token'];
+//        ray("Token: ".$access_token);
+//        set_transient('wetravel_access_token', $access_token, HOUR_IN_SECONDS);
+//    } else {
+//        $access_token = get_transient('wetravel_access_token');
+//    }
+
+    $response = wp_remote_post('https://www.wetravel.com/v1/auth/tokens/access', $args)['body'];
+    $body = json_decode($response, true);
+    $access_token = $body['access_token'];
+    ray("Token: ".$access_token);
+    set_transient('wetravel_access_token', $access_token, HOUR_IN_SECONDS);
+
+    return $access_token;
+}
 function wetravel_integration_load_tour_data() {
     $post_id = get_queried_object_id();
+    if(get_option('wetravel_tours_id') === false) {
+        wetravel_get_tours_id();
+    }
     $tours = get_option('wetravel_tours_id');
 
     if(in_array($post_id, $tours)) {
@@ -113,16 +147,54 @@ function wetravel_integration_load_tour_data() {
             $data = get_transient('tour_dates_'.$wetravel_id);
             $dates = $data['dates'];
         }
+        return $dates;
+    }
+}
 
-        foreach ($dates as $date) {
-            ray($date);
-            echo('Date: '.$date['date'].'<br>');
-            foreach ($date['options'] as $option) {
-                echo('Seats left: '.$option['available_amount'].'<br>');
-            }
-            if(!$date['sold_out']) {
-                echo('Not sold out<br>');
-            }
+function wetravel_get_packages() {
+    $token = wetravel_get_access_token();
+    $args = array(
+        'headers'     => array(
+            'accept' => 'application/json',
+            'authorization' => 'Bearer ' . $token,
+        ),
+    );
+    $tour_id = get_field('button_code');
+    ray($token);
+
+    $response = wp_remote_get('https://www.wetravel.com/v1/draft_trips/'.$tour_id.'/packages', $args)['body'];
+    $decoded = json_decode($response, true);
+    $packages = $decoded['data'];
+
+    foreach ($packages as $package) {
+        $names[$package['id']] = $package['name'];
+        $names[$package['id'].'_price'] = $package['price'];
+    }
+
+    return $names;
+}
+
+function wetravel_tour_dates_shortcode() {
+    $keys = wetravel_get_packages();
+    $counter = 1;
+    $dates = wetravel_integration_load_tour_data();
+    ray($dates);
+    $output = '<div class="tours-table">';
+    foreach ($dates as $date) {
+        $output .= '<div class="tour-row">';
+        $output .= 'Tour date: '.$date['date'];
+        foreach ($date['options'] as $option) {
+            $output .= '<div class="tour-option">';
+            $output .= $keys[$option['trip_option_id']].' (€'.$keys[$option['trip_option_id'].'_price'].') '.$option['available_amount'].' places left';
+            $output .= '</div>';
+        }
+        $output .= '</div>';
+        $counter++;
+        if($counter == 7) {
+            break;
         }
     }
+    $output .= '</div>';
+
+    return $output;
 }
