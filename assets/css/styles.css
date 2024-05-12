@@ -1,3 +1,14 @@
 body {
     background-color: #f0f0f1;
 }
+
+.tours-table {
+    width: 50%;
+    margin: 20px 0;
+}
+
+li.tour-row {
+    padding: 10px;
+    list-style: none;
+    background-color: #f0f0f1;
+}

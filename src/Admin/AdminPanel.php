@@ -39,8 +39,28 @@ class AdminPanel
         <input type="submit" value="Save Key" class="btn btn-primary my-2">
         </form>
         <hr>
-
+        <div>
+            <p>Current number of active tours: <?php echo(wp_count_posts('tours')->publish) ?></p>
+            <p>Numbers of tours scanned by plugin: <?php echo($this->count_scanned_tours()) ?></p>
+            <form action="admin-post.php" method="POST">
+                <input type="hidden" name="action" value="rescan_tours" />
+                <?php wp_nonce_field('wetravel_integration_nonce'); ?>
+                <input type="submit" value="Rescan the Tours" class="btn btn-primary my-2">
+            </form>
+        </div>
         </div>
     <?php
+    }
+
+    public function count_scanned_tours()
+    {
+        if(get_option('wetravel_tours_id')) {
+            $tours = get_option('wetravel_tours_id');
+            return count($tours);
+        } else {
+            return 0;
+        }
+
+
     }
 }

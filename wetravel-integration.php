@@ -24,8 +24,9 @@ if (!defined('WPINC')) {
     die;
 }
 
+add_option('wetravel_rescan', false);
 
-function wetravel_load_styles()
+function wetravel_load_admin_styles()
 {
     if (isset($_GET['page']) && $_GET['page'] == 'wetravel-integration') {
         wp_enqueue_style('bootstrap', plugin_dir_url(__FILE__) . 'assets/css/bootstrap.min.css', '', '5.3');
@@ -34,18 +35,20 @@ function wetravel_load_styles()
     }
 }
 
-add_action('admin_enqueue_scripts', 'wetravel_load_styles');
+function wetravel_load_styles()
+{
+    wp_enqueue_style('wetravel-styles', plugin_dir_url(__FILE__) . 'assets/css/styles.css', '', PLUGIN_VERSION);
+}
+
+add_action('admin_enqueue_scripts', 'wetravel_load_admin_styles');
+add_action('wp_enqueue_scripts', 'wetravel_load_styles');
 function wetravel_set_default_options()
 {
     if (get_option('wetravel_api_key') === false) {
         add_option('wetravel_api_key', 'eyJhbGciOiJSUzI1NiJ9.eyJpZCI6MjI2OTQzLCJzY29wZXMiOlsid3JpdGU6YWxsIiwicmVhZDphbGwiLCJvcmdhbml6ZXIiXSwidmVyIjo0LCJwdWIiOnRydWUsImV4cCI6MjAwNjY0MDAwMCwianRpIjoiYmE3ZDVhOTEtOWE5Mi00N2Q1LWEzYjctYzI2YTk0OWUzOWE2Iiwia2luZCI6InJlZnJlc2gifQ.zeSpTYp6_ko5WInmTLuRCDPD2Yrwhr_hM-1imWiteB_p9nwa5Hfe3pXZMTxjYsHDIKZpKxDuHkZL8VkswXdnOnzOvSfQezDGYd7HNwDl6cw1K1bYY60JJ6R0j-doYxtafYN4ybvGMFO_4NLkdrtPobbxoCDevWXTfunIuv6xMqiHcjzNa6BoM0cVnL-TwVdOPfBSvOBgpEJdOs6C0NE3Rc-_F8DeWrpqjDZUzus2MDzH9Uq0MNN72ZAkce5t4V_jtm0bOYMOnpWIv7AVoEWmMagdM0QKb9ULhxYpU4XzS1uesO4cQVYA4dg-5Z3Cqse3NhDGnjmomiLYsQJzku5nTw', '', 'no');
     }
 
-    if(get_option('wetravel_packages') === false) {
-        $packages = array(
-            ''
-        );
-    }
+    wetravel_get_tours_id();
 }
 
 register_activation_hook(__FILE__, 'wetravel_set_default_options');
@@ -58,13 +61,14 @@ function wetravel_integration_admin_menu()
 
 add_action('admin_menu', 'wetravel_integration_admin_menu');
 add_action('admin_init', 'wetravel_integration_admin_init');
-add_action('admin_head', 'wetravel_get_tours_id');
 add_action('wp_head', 'wetravel_integration_load_tour_data');
 add_shortcode('wetravel-dates', 'wetravel_tour_dates_shortcode');
+add_action( 'admin_notices', 'wetravel_rescan_complete' );
 
 function wetravel_integration_admin_init()
 {
     add_action('admin_post_save_wetravel_api_key', 'wetravel_save_options');
+    add_action('admin_post_rescan_tours', 'wetravel_rescan_tours');
 }
 
 function wetravel_save_options()
@@ -86,6 +90,15 @@ function wetravel_save_options()
     exit;
 }
 
+function wetravel_notours_error() {
+    if(get_option('wetravel_tours_id') === false) {
+        $class = 'notice notice-error';
+        $message = __( 'The site does not have any tours published yet. Please contact your website administrator.');
+        printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
+    }
+
+}
+
 function wetravel_get_tours_id() {
     $tours_ids = get_posts(array(
         'post_type' => 'tours',
@@ -94,10 +107,26 @@ function wetravel_get_tours_id() {
         'orderby' => 'ID',
         'order' => 'ASC',
         'posts_per_page' => -1));
+
     if(get_option('wetravel_tours_id') === false) {
         add_option('wetravel_tours_id', $tours_ids);
     } else {
         update_option('wetravel_tours_id', $tours_ids);
+    }
+}
+
+function wetravel_rescan_tours() {
+    wetravel_get_tours_id();
+    wp_redirect(add_query_arg(array('page' => 'wetravel-integration'), admin_url('admin.php')));
+    update_option('wetravel_rescan', true);
+}
+
+function wetravel_rescan_complete() {
+    if(get_option('wetravel_rescan')) {
+        $class = 'notice notice-success';
+        $message = __( 'Rescan complete.', 'sample-text-domain' );
+        printf( '<div class="%1$s"><p>%2$s</p></div>', esc_attr( $class ), esc_html( $message ) );
+        update_option('wetravel_rescan', false);
     }
 }
 
@@ -108,15 +137,6 @@ function wetravel_get_access_token() {
             'authorization' => 'Bearer ' . get_option('wetravel_api_key'),
         ),
     );
-//    if(get_transient('wetravel_access_token' === false)) {
-//        $response = wp_remote_post('https://www.wetravel.com/v1/auth/tokens/access', $args)['body'];
-//        $body = json_decode($response, true);
-//        $access_token = $body['access_token'];
-//        ray("Token: ".$access_token);
-//        set_transient('wetravel_access_token', $access_token, HOUR_IN_SECONDS);
-//    } else {
-//        $access_token = get_transient('wetravel_access_token');
-//    }
 
     $response = wp_remote_post('https://www.wetravel.com/v1/auth/tokens/access', $args)['body'];
     $body = json_decode($response, true);
@@ -175,26 +195,21 @@ function wetravel_get_packages() {
 }
 
 function wetravel_tour_dates_shortcode() {
-    $keys = wetravel_get_packages();
     $counter = 1;
     $dates = wetravel_integration_load_tour_data();
-    ray($dates);
-    $output = '<div class="tours-table">';
+    $output = '<ul class="tours-table">';
     foreach ($dates as $date) {
-        $output .= '<div class="tour-row">';
-        $output .= 'Tour date: '.$date['date'];
-        foreach ($date['options'] as $option) {
-            $output .= '<div class="tour-option">';
-            $output .= $keys[$option['trip_option_id']].' (€'.$keys[$option['trip_option_id'].'_price'].') '.$option['available_amount'].' places left';
-            $output .= '</div>';
-        }
-        $output .= '</div>';
+        $output .= '<li class="tour-row">';
+        $output .= '<div >';
+        $output .= '<span class="tour-row-label">Tour date: </span>'.$date['date'].' - ';
+        $output .=  16-$date['total_participants_count'].' places left';
+        $output .= '</div></li>';
         $counter++;
         if($counter == 7) {
             break;
         }
     }
-    $output .= '</div>';
+    $output .= '</ul>';
 
     return $output;
 }
